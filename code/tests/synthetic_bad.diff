@@ -1,0 +1,29 @@
+diff --git a/app/users.py b/app/users.py
+index 1234567..abcdefg 100644
+--- a/app/users.py
++++ b/app/users.py
+@@ -10,6 +10,25 @@ from database import db
+ from flask import Flask, request, jsonify
+ 
+ app = Flask(__name__)
++API_KEY = "sk-livesdfsdfasdfa-abcdsf123def456ghi789"  # production stripe key
++
++@app.route("/api/user/<user_id>")
++def get_user(user_id):
++    # Build SQL query from user input
++    query = f"SELECT * FROM users WHERE id = '{user_id}'"
++    result = db.execute(query)
++    return jsonify(result.fetchone())
++
++@app.route("/api/users/orders")
++def get_users_with_orders():
++    users = db.execute("SELECT * FROM users").fetchall()
++    result = []
++    for user in users:
++        orders = db.execute(f"SELECT * FROM orders WHERE user_id = {user['id']}").fetchall()
++        result.append({"user": user, "orders": orders})
++    return jsonify(result)
++
++def process_payment(amount, user):
++    total = user.balance - amount
++    return total
