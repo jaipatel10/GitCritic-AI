@@ -1,9 +1,11 @@
+from cmd import PROMPT
 import sys
 import json
 from pathlib import Path
 from typing import Literal
 from anthropic import Anthropic
 from pydantic import BaseModel
+from retriever import CodebaseRetriever
 
 # Schema for the claude's response
 class Finding(BaseModel):
@@ -48,6 +50,47 @@ SYSTEM_PROMPT = """You are a senior software engineer reviewing a pull request.
     }
 
     If the PR has no issues worth flagging, return an empty findings array."""
+
+
+def extract_diff_for_search(diff_text: str, max_chars:int = 500) -> str:
+    """Extract just added/modified lines (without +/-) to use as a search query"""
+    changed_lines = []
+    for line in diff_text.split('\n'):
+        if line.startswith('+') and not line.startswith('+++'):
+            changed_lines.append(line[1:])
+    return '\n'.join(changed_lines)[:max_chars]
+
+def review_diff_with_context(diff_text: str, codebase_path: Path = None) -> Review:
+    context_section = ""
+
+    if codebase_path:
+        retriever = CodebaseRetriever(codebase_path)
+        search_query = extract_diff_for_search(diff_text)
+        relevant = retriever.retrieve(search_query, k=3)
+
+        if relevant:
+            context_section = "### Relevant codebase context (existing code for reference):\n\n"
+            for chunk in relevant:
+                file_short = chunk['file'].split('/')[-1]
+                context_section += f"### {file_short}:{chunk['start_line']} — {chunk['name']}\n```python\n{chunk['code'][:500]}\n```\n\n"
+    
+    PROMPT = f'{context_section}## PR Diff to review:\n\n{diff_text}'
+    print(f'Context prompt : {PROMPT}')
+    response = client.messages.create(
+        model='claude-sonnet-4-5',
+        max_tokens=2048,
+        system=SYSTEM_PROMPT,
+        messages=[{'role':'user', 'content':PROMPT}]
+    )
+    text = response.content[0].text.strip()
+    # Strip markdown fences if Claude wraps the JSON
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1])
+
+    data = json.loads(text)
+    return Review(**data)
+
 
 def review_diff(diff_text: str) -> Review:
     response = client.messages.create(
@@ -97,8 +140,9 @@ def main():
 
     diff_text = diff_path.read_text()
     print(f'Reviewing {diff_path.name} ({len(diff_text)} chars)...', file=sys.stderr)
+    print(f'codebase context: {Path(sys.argv[2])}')
 
-    review = review_diff(diff_text)
+    review = review_diff_with_context(diff_text, codebase_path=Path(sys.argv[2])) 
     print(format_review(review))
 
     # Print Cost

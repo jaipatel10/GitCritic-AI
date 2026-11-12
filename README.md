@@ -24,12 +24,12 @@ cost per review.
 
 ## Roadmap
 
-- [x] Architecture design (Nov 2026)
-- [ ] Single-agent prototype (Week 12)
-- [ ] Multi-agent orchestration (Week 13)
-- [ ] Eval dataset + metrics (Week 14)
-- [ ] GitHub app integration (Week 15)
-- [ ] Public launch + blog post (Week 16)
+- [x] Architecture design 
+- [ ] Single-agent prototype
+- [ ] Multi-agent orchestration 
+- [ ] Eval dataset + metrics 
+- [ ] GitHub app integration 
+- [ ] Public launch + blog post
 
 ## Tech stack
 
@@ -40,3 +40,8 @@ cost per review.
 - Hosting: Railway
 
 Built as part of transitioning from Android engineering to Applied AI.
+
+## Update on the development :
+
+What’s now built (single-agent + RAG retrieval)
+Current limitations (“RAG shows marginal value on simple diffs — harder evals coming next”)
