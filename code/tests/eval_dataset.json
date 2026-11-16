@@ -1,0 +1,189 @@
+[
+    {
+      "pr_id": "001-synthetic-security",
+      "source": "synthetic",
+      "difficulty": "easy",
+      "description": "Hardcoded API key + SQL injection + N+1 query (the original synthetic test)",
+      "diff_path": "code/tests/synthetic_bad.diff",
+      "expected_findings": [
+        {
+          "category": "security",
+          "min_severity": "critical",
+          "topic": "hardcoded api key secret",
+          "description": "Production API key committed in source code"
+        },
+        {
+          "category": "security",
+          "min_severity": "critical",
+          "topic": "sql injection f-string",
+          "description": "User input directly interpolated into SQL query"
+        },
+        {
+          "category": "performance",
+          "min_severity": "high",
+          "topic": "n+1 query loop",
+          "description": "Database query executed per iteration"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Baseline test — all issues are obvious and self-contained"
+    },
+    {
+      "pr_id": "002-markdown-fence-regression",
+      "source": "modified-from:applied-ai-journey week11/day1/summarize_pdf.py",
+      "difficulty": "medium",
+      "description": "Removes markdown fence handling from extract_json_from_response",
+      "diff_path": "code/tests/realistic_bad.diff",
+      "expected_findings": [
+        {
+          "category": "logic",
+          "min_severity": "high",
+          "topic": "markdown fence json parsing",
+          "description": "Removal breaks JSON parsing when LLM wraps responses in code blocks"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Baseline + RAG both caught this on Day 5"
+    },
+    {
+      "pr_id": "003-hardcoded-key-pdf",
+      "source": "modified-from:applied-ai-journey week11/day1/summarize_pdf.py",
+      "difficulty": "easy",
+      "description": "Adds hardcoded Anthropic API key to summarize_pdf.py",
+      "diff_path": "code/tests/eval_03_hardcoded_key.diff",
+      "expected_findings": [
+        {
+          "category": "security",
+          "min_severity": "critical",
+          "topic": "hardcoded api key secret",
+          "description": "Anthropic API key hardcoded instead of using env var"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Easy security catch — tests baseline security detection"
+    },
+    {
+      "pr_id": "004-unsafe-eval",
+      "source": "modified-from:applied-ai-journey week11/day3/mini_agent.py",
+      "difficulty": "medium",
+      "description": "Removes character validation from tool_calculate, exposes raw eval() to user input",
+      "diff_path": "code/tests/eval_04_unsafe_eval.diff",
+      "expected_findings": [
+        {
+          "category": "security",
+          "min_severity": "high",
+          "topic": "unsafe eval user input arbitrary code execution",
+          "description": "Removing char validation makes eval() dangerous — any Python expression runs"
+        }
+      ],
+      "forbidden_findings": [
+        "variable naming",
+        "docstring missing"
+      ],
+      "notes": "Tests whether agent recognizes partial safety guard removal as a security regression"
+    },
+    {
+      "pr_id": "005-swallowed-exception",
+      "source": "modified-from:applied-ai-journey week11/day1/summarize_pdf.py",
+      "difficulty": "hard",
+      "description": "Changes call_with_retry to silently swallow exceptions instead of raising on final attempt",
+      "diff_path": "code/tests/eval_05_swallowed_exception.diff",
+      "expected_findings": [
+        {
+          "category": "logic",
+          "min_severity": "high",
+          "topic": "swallowed exception silent failure",
+          "description": "Returning None on final retry hides errors from caller"
+        }
+      ],
+      "forbidden_findings": [
+        "variable naming"
+      ],
+      "notes": "Harder — the change looks innocuous but breaks error propagation"
+    },
+    {
+      "pr_id": "006-path-traversal",
+      "source": "modified-from:applied-ai-journey week11/day1/summarize_pdf.py",
+      "difficulty": "medium",
+      "description": "Accepts user-supplied filename and reads it without path validation",
+      "diff_path": "code/tests/eval_06_path_traversal.diff",
+      "expected_findings": [
+        {
+          "category": "security",
+          "min_severity": "high",
+          "topic": "path traversal directory escape",
+          "description": "User-controlled filename passed to open() enables ../../../etc/passwd attacks"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Common web security vulnerability — tests if agent catches path traversal pattern"
+    },
+    {
+      "pr_id": "007-race-condition",
+      "source": "modified-from:applied-ai-journey week11/day2/multi_pdf_summarizer.py",
+      "difficulty": "hard",
+      "description": "Removes semaphore acquisition, introduces unbounded concurrent API calls",
+      "diff_path": "code/tests/eval_07_race_condition.diff",
+      "expected_findings": [
+        {
+          "category": "performance",
+          "min_severity": "high",
+          "topic": "unbounded concurrency rate limit",
+          "description": "Removing semaphore allows all tasks to hit API simultaneously, causing rate limit errors"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Subtle async bug — removal looks like simplification but breaks rate limiting"
+    },
+    {
+      "pr_id": "008-broad-except",
+      "source": "modified-from:applied-ai-journey week11/day3/mini_agent.py",
+      "difficulty": "medium",
+      "description": "Replaces specific exception handling with bare except that swallows KeyboardInterrupt",
+      "diff_path": "code/tests/eval_08_broad_except.diff",
+      "expected_findings": [
+        {
+          "category": "logic",
+          "min_severity": "medium",
+          "topic": "bare except swallows keyboardinterrupt systemexit",
+          "description": "Using 'except:' instead of 'except Exception:' catches KeyboardInterrupt, making the program unkillable"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Common Python anti-pattern that trips up even experienced devs"
+    },
+    {
+        "pr_id": "009-convention-violation",
+        "source": "modified-from:applied-ai-journey week11/day1/summarize_pdf.py",
+        "difficulty": "medium",
+        "description": "Adds a new function that violates the codebase convention of using Pydantic schemas for structured output",
+        "diff_path": "tests/eval_09_convention_violation.diff",
+        "expected_findings": [
+          {
+            "category": "style",
+            "min_severity": "low",
+            "topic": "inconsistent convention pattern codebase",
+            "description": "Function uses different pattern than existing summarize functions — returns raw dict instead of Pydantic model, inline prompt instead of build_prompt helper"
+          }
+        ],
+        "forbidden_findings": [],
+        "notes": "Tests whether RAG context helps agent spot convention violations. Agent should reference existing functions from retrieved context."
+    },
+    {
+      "pr_id": "010-breaking-signature",
+      "source": "modified-from:applied-ai-journey week11/day1/summarize_pdf.py",
+      "difficulty": "hard",
+      "description": "Changes extract_pdf_text to return List[str] (per page) instead of str (concatenated)",
+      "diff_path": "code/tests/eval_10_breaking_signature.diff",
+      "expected_findings": [
+        {
+          "category": "logic",
+          "min_severity": "high",
+          "topic": "breaking change return type callers",
+          "description": "Changing return type from str to List[str] breaks all existing callers that pass result to prompt as text"
+        }
+      ],
+      "forbidden_findings": [],
+      "notes": "Tests downstream impact awareness — this is where RAG context about callers should help"
+    }
+  ]

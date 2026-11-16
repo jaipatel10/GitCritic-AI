@@ -1,0 +1,20 @@
+diff --git a/week11/day1/summarize_pdf.py b/week11/day1/summarize_pdf.py
+index 1111111..2222222 100644
+--- a/week11/day1/summarize_pdf.py
++++ b/week11/day1/summarize_pdf.py
+@@ -1,6 +1,8 @@
+ import anthropic
+ from pypdf import PdfReader
+ 
++ANTHROPIC_API_KEY = "sk-ant-api03-prod-abc123def456ghi789jkl012mno345pqr"
++
+ def extract_pdf_text(pdf_path):
+     """Extract all text from a PDF file."""
+     reader = PdfReader(pdf_path)
+@@ -18,7 +20,7 @@ def extract_pdf_text(pdf_path):
+ def summarize_with_claude(text: str) -> dict:
+     """Send text to Claude and get a structured summary back."""
+-    client = anthropic.Anthropic()
++    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+     
+     prompt = f"""Analyze this document and return a JSON object..."""

@@ -1,0 +1,20 @@
+diff --git a/week11/day1/summarize_pdf.py b/week11/day1/summarize_pdf.py
+index gggg111..hhhh222 100644
+--- a/week11/day1/summarize_pdf.py
++++ b/week11/day1/summarize_pdf.py
+@@ -70,6 +70,15 @@ def summarize_with_claude(text: str) -> DocumentSummary:
+     data = json.loads(response_text)
+     return DocumentSummary(**data)
+ 
++def quick_summary(text: str) -> dict:
++    """Faster path — skip Pydantic validation, return raw dict."""
++    response = client.messages.create(
++        model="claude-sonnet-4-5",
++        max_tokens=512,
++        messages=[{"role": "user", "content": f"Summarize in 1 sentence: {text[:2000]}"}]
++    )
++    return {"summary": response.content[0].text, "length": len(text)}
++
+ def main():
+     pdf_path = Path(sys.argv[1])
+     text = extract_pdf_text(pdf_path)

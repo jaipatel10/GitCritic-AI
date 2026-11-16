@@ -9,7 +9,7 @@ from retriever import CodebaseRetriever
 
 # Schema for the claude's response
 class Finding(BaseModel):
-    severity: Literal['low', 'medium', 'high', 'critical']
+    severity: str
     file: str
     line: int
     category: Literal['security', 'performance', 'logic', 'style']
@@ -25,11 +25,15 @@ client = Anthropic()
 SYSTEM_PROMPT = """You are a senior software engineer reviewing a pull request.
     Analyze the diff and return findings in strict JSON format.
 
-    Focus on real issues, not nitpicks:
-    - Security: injection, auth bypasses, exposed secrets, unsafe deserialization
-    - Performance: inefficient algorithms, N+1 queries, memory issues
-    - Logic: edge cases, null handling, correctness, missing tests
-    - Style: naming, conventions, dead code, missing types
+    **You MUST use exactly one of these 4 categories for every finding — no other values are allowed:**
+    - "security" — injection, auth bypasses, exposed secrets, unsafe operations
+    - "performance" — inefficient algorithms, N+1 queries, memory issues, blocking calls
+    - "logic" — edge cases, correctness, error handling, null handling, race conditions
+    - "style" — naming, conventions, dead code, missing types, readability
+
+    If a finding feels like "correctness" or "reliability" — use "logic".
+    If it feels like "vulnerability" — use "security".
+    Never invent new category names.
 
     For each finding, assign a severity (low/medium/high/critical) and category.
     Only report issues you are confident about. False positives waste engineer time.
@@ -89,7 +93,11 @@ def review_diff_with_context(diff_text: str, codebase_path: Path = None) -> Revi
         text = "\n".join(lines[1:-1])
 
     data = json.loads(text)
-    return Review(**data)
+    review = Review(**data)
+    # Normalize categories for consistent scoring
+    for finding in review.findings:
+        finding.category = normalize_category(finding.category)
+    return review
 
 
 def review_diff(diff_text: str) -> Review:
@@ -127,6 +135,24 @@ def format_review(review: Review) -> str:
         output.append(f' Why: {f.rationale}')
 
     return '\n'.join(output)
+
+def normalize_category(cat: str) -> str:
+    """Map any Claude-produced category to one of our 4 standard ones."""
+    cat = cat.lower().strip()
+    mapping = {
+        'correctness': 'logic',
+        'bug': 'logic',
+        'error': 'logic',
+        'reliability': 'logic',
+        'maintainability': 'style',
+        'readability': 'style',
+        'convention': 'style',
+        'vulnerability': 'security',
+        'injection': 'security',
+        'efficiency': 'performance',
+        'scalability': 'performance',
+    }
+    return mapping.get(cat, cat if cat in ['security', 'performance', 'logic', 'style'] else 'logic')
 
 def main():
     if len(sys.argv) < 2:

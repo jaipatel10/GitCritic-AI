@@ -1,0 +1,26 @@
+diff --git a/week11/day3/mini_agent.py b/week11/day3/mini_agent.py
+index eeee111..ffff222 100644
+--- a/week11/day3/mini_agent.py
++++ b/week11/day3/mini_agent.py
+@@ -60,12 +60,12 @@ def chat(user_message: str) -> str:
+     
+     max_iterations = 10
+     for iteration in range(max_iterations):
+-        try:
+-            response = client.messages.create(
+-                model="claude-sonnet-4-5",
+-                max_tokens=1024,
+-                tools=TOOLS,
+-                messages=messages
+-            )
+-        except APIError as e:
+-            return f"API error: {e}"
++        try:
++            response = client.messages.create(
++                model="claude-sonnet-4-5",
++                max_tokens=1024,
++                tools=TOOLS,
++                messages=messages
++            )
++        except:
++            return "Something went wrong"

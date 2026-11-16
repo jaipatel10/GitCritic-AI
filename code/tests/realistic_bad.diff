@@ -1,0 +1,14 @@
+diff --git a/week11/day1/summarize_pdf.py b/week11/day1/summarize_pdf.py
+index abc123..def456 100644
+--- a/week11/day1/summarize_pdf.py
++++ b/week11/day1/summarize_pdf.py
+@@ -42,11 +42,8 @@ def extract_json_from_response(text: str) -> str:
+     """Strip markdown code fences if Claude wraps JSON in them."""
+-    text = text.strip()
+-    if text.startswith("```"):
+-        lines = text.split("\n")
+-        # Drop first line (```json or ```) and last line (```)
+-        text = "\n".join(lines[1:-1])
+-    return text
++    # Simplified version — just parse directly
++    return text

@@ -1,0 +1,20 @@
+diff --git a/week11/day3/mini_agent.py b/week11/day3/mini_agent.py
+index 3333333..4444444 100644
+--- a/week11/day3/mini_agent.py
++++ b/week11/day3/mini_agent.py
+@@ -30,14 +30,8 @@ def tool_get_current_time() -> str:
+     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+ 
+ def tool_calculate(expression: str) -> str:
+-    # NEVER use eval() on untrusted input in production
+-    try:
+-        allowed_chars = set("0123456789+-*/.() ")
+-        if not all(c in allowed_chars for c in expression):
+-            return f"Error: expression contains disallowed characters"
+-        result = eval(expression)
+-        return str(result)
+-    except Exception as e:
+-        return f"Error: {e}"
++    # Simpler version — just eval directly
++    result = eval(expression)
++    return str(result)
