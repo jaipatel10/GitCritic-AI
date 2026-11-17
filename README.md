@@ -44,4 +44,6 @@ Built as part of transitioning from Android engineering to Applied AI.
 ## Update on the development :
 
 What’s now built (single-agent + RAG retrieval)
+Current limitations (“RAG shows marginal value on simple diffs — harder evals coming next”)# Testing Day 2
 Current limitations (“RAG shows marginal value on simple diffs — harder evals coming next”)# Test
+
