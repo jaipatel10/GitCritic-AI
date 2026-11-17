@@ -1,0 +1,26 @@
+diff --git a/week11/day2/multi_pdf_summarizer.py b/week11/day2/multi_pdf_summarizer.py
+index cccc111..dddd222 100644
+--- a/week11/day2/multi_pdf_summarizer.py
++++ b/week11/day2/multi_pdf_summarizer.py
+@@ -20,15 +20,13 @@ class DocumentSummary(BaseModel):
+     word_count: int
+ 
+ client = AsyncAnthropic()
+-semaphore = asyncio.Semaphore(5)
+ 
+ async def summarize_pdf(pdf_path: Path, cost_tracker: dict) -> dict:
+-    async with semaphore:
+-        text = extract_pdf_text(pdf_path)
+-        response = await client.messages.create(
+-            model="claude-sonnet-4-5",
+-            max_tokens=2048,
+-            messages=[{"role": "user", "content": build_prompt(text)}]
+-        )
+-        return parse_response(response)
++    text = extract_pdf_text(pdf_path)
++    response = await client.messages.create(
++        model="claude-sonnet-4-5",
++        max_tokens=2048,
++        messages=[{"role": "user", "content": build_prompt(text)}]
++    )
++    return parse_response(response)

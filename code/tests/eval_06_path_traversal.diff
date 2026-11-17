@@ -1,0 +1,15 @@
+diff --git a/week11/day1/summarize_pdf.py b/week11/day1/summarize_pdf.py
+index aaaa111..bbbb222 100644
+--- a/week11/day1/summarize_pdf.py
++++ b/week11/day1/summarize_pdf.py
+@@ -15,8 +15,9 @@ def extract_pdf_text(pdf_path):
+         text += page.extract_text() + "\n"
+     return text
+ 
+-def read_user_document(filename):
+-    safe_path = Path("uploads") / Path(filename).name
+-    return safe_path.read_text()
++def read_user_document(filename):
++    # Simplified — just take the filename directly
++    path = Path("uploads") / filename
++    return path.read_text()

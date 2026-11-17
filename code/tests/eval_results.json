@@ -1,0 +1,378 @@
+[
+  {
+    "pr_id": "001-synthetic-security",
+    "true_positives": 3,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 3,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "critical",
+        "file": "app/users.py",
+        "line": 13,
+        "category": "security",
+        "message": "Hardcoded API key exposed in source code",
+        "rationale": "The API key 'sk-live-abc123def456ghi789' is committed directly to the repository. This credential should be stored in environment variables or a secrets management system. If this code is in version control, the key is now compromised and must be rotated immediately."
+      },
+      {
+        "severity": "critical",
+        "file": "app/users.py",
+        "line": 17,
+        "category": "security",
+        "message": "SQL injection vulnerability in user_id parameter",
+        "rationale": "The query uses f-string formatting to directly interpolate user_id into the SQL statement without sanitization. An attacker could pass \"1' OR '1'='1\" or \"1; DROP TABLE users--\" to access unauthorized data or execute malicious SQL commands. Use parameterized queries instead."
+      },
+      {
+        "severity": "high",
+        "file": "app/users.py",
+        "line": 22,
+        "category": "performance",
+        "message": "N+1 query problem loading user orders",
+        "rationale": "This code executes one query to fetch all users, then executes a separate query for each user's orders in a loop. For 1000 users, this generates 1001 database queries. Use a JOIN or batch query to fetch all data in 1-2 queries instead."
+      },
+      {
+        "severity": "medium",
+        "file": "app/users.py",
+        "line": 19,
+        "category": "logic",
+        "message": "Missing null/error handling when user not found",
+        "rationale": "If user_id doesn't exist, fetchone() returns None, and jsonify(None) will return 'null' with 200 OK. This could cause client-side errors. Should return 404 with an appropriate error message when user is not found."
+      },
+      {
+        "severity": "medium",
+        "file": "app/users.py",
+        "line": 31,
+        "category": "logic",
+        "message": "Payment processing lacks validation and error handling",
+        "rationale": "The function doesn't validate that user.balance exists, that amount is positive, or that the user has sufficient balance. It also doesn't handle the case where the result is negative (overdraft). This could lead to incorrect financial transactions."
+      },
+      {
+        "severity": "low",
+        "file": "app/users.py",
+        "line": 31,
+        "category": "style",
+        "message": "Unused function 'process_payment' has no callers",
+        "rationale": "This function is defined but never called in the diff or visible codebase context. If it's meant to be used, add the integration point. If it's dead code, remove it to reduce maintenance burden."
+      }
+    ]
+  },
+  {
+    "pr_id": "002-markdown-fence-regression",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 2,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "high",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 45,
+        "category": "logic",
+        "message": "Removing markdown fence stripping breaks JSON parsing when Claude wraps responses in code blocks",
+        "rationale": "The original function handles Claude's common behavior of wrapping JSON in ```json...``` fences. The simplified version passes raw response text to JSON.parse, which will fail when fences are present. This will cause runtime errors for legitimate API responses. The comment 'just parse directly' suggests misunderstanding of the problem this function solves."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 45,
+        "category": "logic",
+        "message": "Function no longer strips whitespace from response text",
+        "rationale": "Removing text.strip() means leading/trailing whitespace in the API response won't be cleaned up before parsing. While JSON.parse is somewhat tolerant of whitespace, this increases fragility and removes defensive programming that costs almost nothing."
+      },
+      {
+        "severity": "low",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 44,
+        "category": "style",
+        "message": "Comment doesn't match the actual behavior or explain why simplification is safe",
+        "rationale": "The comment 'Simplified version \u2014 just parse directly' doesn't explain why the markdown fence handling was removed or provide evidence this is safe. Good comments explain *why* code does something, especially when removing existing logic."
+      }
+    ]
+  },
+  {
+    "pr_id": "003-hardcoded-key-pdf",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 1,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "critical",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 4,
+        "category": "security",
+        "message": "Hardcoded API key exposed in source code",
+        "rationale": "The Anthropic API key is hardcoded directly in the source file. This is a critical security vulnerability as it will be committed to version control, potentially exposing the key to unauthorized users. API keys should be stored in environment variables or secure secret management systems. This key should be rotated immediately and loaded via os.getenv('ANTHROPIC_API_KEY') instead."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 23,
+        "category": "logic",
+        "message": "Removed default API key resolution from environment",
+        "rationale": "The original code 'anthropic.Anthropic()' automatically reads from the ANTHROPIC_API_KEY environment variable. The change explicitly passes the hardcoded key, breaking the standard environment-based configuration pattern. This makes the code less flexible and harder to configure across different environments (dev, staging, prod)."
+      }
+    ]
+  },
+  {
+    "pr_id": "004-unsafe-eval",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 1,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "critical",
+        "file": "week11/day3/mini_agent.py",
+        "line": 33,
+        "category": "security",
+        "message": "Removed security validation before eval() \u2014 enables arbitrary code execution",
+        "rationale": "The PR removes the character allowlist that prevented injection attacks. An attacker can now pass `__import__('os').system('rm -rf /')` or similar malicious code. The existing codebase (research_assistant.py:50) shows this validation is a known pattern. This is a critical security regression that enables Remote Code Execution (RCE)."
+      },
+      {
+        "severity": "high",
+        "file": "week11/day3/mini_agent.py",
+        "line": 33,
+        "category": "logic",
+        "message": "Removed error handling \u2014 unhandled exceptions will crash the agent",
+        "rationale": "The try-except block was removed. Invalid expressions like `1/0` or malformed syntax will now raise unhandled exceptions, causing the agent to crash instead of gracefully returning an error message to the user."
+      }
+    ]
+  },
+  {
+    "pr_id": "005-swallowed-exception",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 2,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "critical",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 64,
+        "category": "logic",
+        "message": "Silent failure on exhausted retries breaks error handling contract",
+        "rationale": "Returning None instead of raising the exception fundamentally changes the function's behavior. Callers expect an exception on failure (as seen in existing code), but will now receive None, leading to AttributeError or incorrect behavior downstream. The comment 'keep the pipeline flowing' suggests hiding errors, which prevents proper error detection and handling."
+      },
+      {
+        "severity": "high",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 55,
+        "category": "logic",
+        "message": "Unused variable last_error serves no purpose",
+        "rationale": "The variable last_error is assigned but never used. If the intent was to raise it after the loop, that code is missing. If the intent was to return None, tracking the error is pointless. This suggests incomplete implementation."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 62,
+        "category": "logic",
+        "message": "Retry delay occurs even on final attempt before giving up",
+        "rationale": "The code now sleeps 2^(max_retries-1) seconds before returning None on the final failed attempt, adding unnecessary delay. The sleep should be conditional: only execute if another retry will occur (i.e., attempt < max_retries - 1)."
+      }
+    ]
+  },
+  {
+    "pr_id": "006-path-traversal",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 1,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "critical",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 20,
+        "category": "security",
+        "message": "Path traversal vulnerability: user input concatenated directly into filesystem path",
+        "rationale": "The original code used `Path(filename).name` to sanitize the filename by extracting only the basename. The new code concatenates `filename` directly, allowing attackers to pass values like '../../../etc/passwd' to read arbitrary files outside the uploads directory. This is a classic path traversal attack vector."
+      },
+      {
+        "severity": "high",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 18,
+        "category": "logic",
+        "message": "Function name 'read_user_document' misleading for PDF processing",
+        "rationale": "This function is in a PDF summarizer module and returns text via `read_text()`, but the codebase context shows PDF text extraction happens via `extract_pdf_text()` using PdfReader. This function appears to read plain text files, not PDFs, creating confusion about its purpose and potentially bypassing PDF-specific processing logic."
+      }
+    ]
+  },
+  {
+    "pr_id": "007-race-condition",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 2,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "high",
+        "file": "week11/day2/multi_pdf_summarizer.py",
+        "line": 23,
+        "category": "performance",
+        "message": "Removed semaphore removes API rate limiting, risking rate limit errors and potential service throttling",
+        "rationale": "The semaphore(5) was controlling concurrent API requests to Claude. Without it, if many PDFs are processed simultaneously, all requests fire at once. This can exceed Anthropic's rate limits, cause 429 errors, increase costs from retries, and potentially trigger account throttling. The semaphore was a best practice for managing concurrent external API calls."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day2/multi_pdf_summarizer.py",
+        "line": 25,
+        "category": "logic",
+        "message": "Cost tracking removed from summarize_pdf breaks the cost_tracker parameter contract",
+        "rationale": "The function signature still accepts cost_tracker: dict but no longer uses it (the removed code had 'cost_tracker[\"input_tokens\"] += ...'). This breaks the implicit contract where callers expect cost tracking to happen. Either remove the parameter or restore the tracking logic to maintain expected behavior."
+      },
+      {
+        "severity": "low",
+        "file": "week11/day2/multi_pdf_summarizer.py",
+        "line": 24,
+        "category": "logic",
+        "message": "extract_pdf_text called in async context but is synchronous, blocking the event loop",
+        "rationale": "extract_pdf_text (from pdf_summarizer_cli.py) is a synchronous blocking I/O operation that reads PDF files. Running it directly in an async function blocks the event loop, preventing other coroutines from executing. Should wrap in asyncio.to_thread() or run_in_executor() to avoid blocking."
+      }
+    ]
+  },
+  {
+    "pr_id": "008-broad-except",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 2,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "high",
+        "file": "week11/day3/mini_agent.py",
+        "line": 70,
+        "category": "logic",
+        "message": "Bare except clause catches all exceptions including KeyboardInterrupt and SystemExit",
+        "rationale": "Changed from catching specific APIError to bare except. This will catch system exceptions that should propagate (KeyboardInterrupt, SystemExit) and makes debugging impossible since the actual error is lost. Should catch specific exception types or at minimum use 'except Exception as e' to preserve error details."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day3/mini_agent.py",
+        "line": 71,
+        "category": "logic",
+        "message": "Generic error message loses critical debugging information",
+        "rationale": "Changed from returning the actual error details to a generic message. This makes troubleshooting production issues nearly impossible. Even if the exception type is broadened, the error message should include the exception details for debugging and logging purposes."
+      },
+      {
+        "severity": "low",
+        "file": "week11/day3/mini_agent.py",
+        "line": 70,
+        "category": "style",
+        "message": "Inconsistent error handling pattern with codebase",
+        "rationale": "The codebase examples (research_assistant.py, pdf_summarizer_cli.py) show no try-except around API calls, while multi_pdf_summarizer.py doesn't show exception handling in the visible code. This change introduces error handling but does so in a problematic way that deviates from best practices."
+      }
+    ]
+  },
+  {
+    "pr_id": "009-convention-violation",
+    "true_positives": 0,
+    "false_negatives": 1,
+    "false_positives": 0,
+    "other_findings": 5,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "agent_findings_raw": [
+      {
+        "severity": "high",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 73,
+        "category": "security",
+        "message": "Unsanitized user input directly interpolated into LLM prompt",
+        "rationale": "The text parameter is sliced and directly embedded in an f-string without validation or escaping. A malicious PDF could contain prompt injection payloads that manipulate the model's behavior, potentially causing data exfiltration or unintended actions. Best practice is to use structured prompts or clearly separate user content from instructions."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 78,
+        "category": "logic",
+        "message": "No error handling for API call or content access",
+        "rationale": "The code assumes response.content[0].text exists without checking if the response succeeded, if content is non-empty, or if the expected structure is present. Network failures, rate limits, or unexpected API responses would cause unhandled exceptions. Compare with summarize_with_claude which has try/except blocks (visible in context)."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 76,
+        "category": "logic",
+        "message": "Arbitrary text truncation may produce incomplete or misleading summaries",
+        "rationale": "Slicing text[:2000] can cut mid-sentence or mid-word, potentially losing critical context. The LLM receives fragmented input which may generate inaccurate summaries. Consider token-aware chunking or extracting complete sentences up to a limit instead of blind truncation."
+      },
+      {
+        "severity": "low",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 73,
+        "category": "style",
+        "message": "Inconsistent API usage pattern compared to codebase conventions",
+        "rationale": "Other functions in the codebase (summarize_with_claude, summarize_pdf, chat) use structured prompts and proper message formatting. This function uses inline f-string prompts, breaking established patterns and making the code harder to maintain and audit for prompt injection issues."
+      },
+      {
+        "severity": "low",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 79,
+        "category": "logic",
+        "message": "Return value includes redundant 'length' field",
+        "rationale": "The 'length' field returns len(text) which is the full text length, not the truncated portion actually sent to the API. This could confuse callers who expect it to reflect the summarized content length. Either return len(text[:2000]) or clarify the field name like 'original_length'."
+      }
+    ]
+  },
+  {
+    "pr_id": "010-breaking-signature",
+    "true_positives": 1,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "other_findings": 2,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "agent_findings_raw": [
+      {
+        "severity": "critical",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 13,
+        "category": "logic",
+        "message": "Breaking change: return type changed from str to list[str] without updating callers",
+        "rationale": "The function signature changed from returning a single string to returning a list of strings. However, the codebase context shows that `summarize_with_claude(text)` in `pdf_summarizer_cli.py:76` and `build_prompt(text: str)` in `multi_pdf_summarizer.py:33` both expect a string argument. This will cause runtime TypeErrors when the list is passed to functions expecting strings. All call sites must be updated to handle the new list format (e.g., by joining the list back into a string)."
+      },
+      {
+        "severity": "medium",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 16,
+        "category": "logic",
+        "message": "Potential data loss: page separator newlines removed",
+        "rationale": "The original implementation added '\\n' after each page's text to maintain page boundaries. The new list comprehension returns raw page text without separators. If callers join this list without delimiters, multi-page content may run together incorrectly (e.g., 'end of page 1start of page 2'). This could affect downstream text processing and summarization quality."
+      },
+      {
+        "severity": "low",
+        "file": "week11/day1/summarize_pdf.py",
+        "line": 16,
+        "category": "style",
+        "message": "Consider documenting the rationale for returning list instead of string",
+        "rationale": "The docstring still says 'Extract all text' but doesn't explain why a list is now returned or what each list element represents. Adding context like 'Returns list of per-page text for granular processing' would help future maintainers understand the design choice and usage patterns."
+      }
+    ]
+  }
+]
