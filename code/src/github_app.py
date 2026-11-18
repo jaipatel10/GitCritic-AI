@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
 from github_client import fetch_pr_diff
+from review_pr import Review
 
 app = FastAPI(title='GitCriticAI Github App')
 
