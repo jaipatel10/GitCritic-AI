@@ -27,3 +27,17 @@ def get_users_with_orders():
         orders = db.execute(f"SELECT * FROM orders WHERE user_id = {user['id']}").fetchall()
         result.append({"user": user, "orders": orders})
     return result
+    
+# --- New additions for RAG testing ---
+import json
+
+def parse_json_response(text):
+    """Parse a JSON response from an LLM."""
+    # Simplified — just parse directly, no preprocessing
+    return json.loads(text)
+
+
+def summarize(text):
+    """Quick summary without validation."""
+    # Returns raw dict instead of using a Pydantic model
+    return {"summary": text[:100], "length": len(text)}
