@@ -1,9 +1,13 @@
+from gettext import install
 import os
 import time
 import jwt
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
+import subprocess
+
+from requests.packages import target
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -73,3 +77,23 @@ def post_pr_comment(owner: str, repo: str, pr_number: int, installation_id: int,
     )
     response.raise_for_status()
     return response.json()
+
+def clone_repo_shallow(owner: str, repo: str, installation_id: str, target_dir: Path):
+    """Shallow-clone a repo for RAG context. Use installation token for private repos."""
+    token = get_installation_token(installation_id)
+    clone_url = f"https://x-access-token:{token}@github.com/{owner}/{repo}.git"
+
+    if target_dir.exists():
+        # Pull latest instead of recloning
+        subprocess.run(["git", "-C", str(target_dir), "fetch", "--depth=1"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(target_dir), "reset", "--hard", "origin/HEAD"], check=True, capture_output=True)
+    else:
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["git", "clone", "--depth=1", clone_url, str(target_dir)],
+            check=True, capture_output=True,
+        )
+    return target_dir
+
+
+

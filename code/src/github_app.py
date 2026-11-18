@@ -1,11 +1,14 @@
+from multiprocessing import process
 from optparse import Option
 import os
 import hmac
 import hashlib
 import json
 from ssl import VERIFY_ALLOW_PROXY_CERTS
+from tkinter import LAST
 from typing import Optional
 from fastapi import FastAPI, Request, HTTPException, Header
+import requests
 import uvicorn
 from pathlib import Path
 from dotenv import load_dotenv
@@ -13,13 +16,16 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
-from github_client import fetch_pr_diff, post_pr_comment
+from code.src.retriever import CodebaseRetriever
+from github_client import fetch_pr_diff, post_pr_comment, clone_repo_shallow
 from review_pr import Review, review_diff_with_context
 
 app = FastAPI(title='GitCriticAI Github App')
 
 WEBHOOK_SECRET = os.environ["GITHUB_WEBHOOK_SECRET"]
 APP_ID   = os.environ["GITHUB_APP_ID"]
+PROCESSED_DELIEVERIES_FILE = Path('logs/processed_deliveries.json')
+LAST_SHA_FILE = Path('logs/last_reviewed_sha.json')
 
 def verify_webhook_signature(payload_body: bytes, signature_header: str) -> bool:
     """Verify that webhook came from Github using the shared secret."""
@@ -67,6 +73,28 @@ def format_review_as_markdown(review: Review) -> str:
 
     return '\n'.join(body)
 
+def load_processed() -> set:
+    if PROCESSED_DELIEVERIES_FILE.exists():
+        return set(json.loads(PROCESSED_DELIEVERIES_FILE.read_text()))
+    return set()
+
+def mark_processed(delivery_id: str):
+    processed = load_processed()
+    processed.add(delivery_id)
+    PROCESSED_DELIEVERIES_FILE.parent.mkdir(exist_ok=True)
+    PROCESSED_DELIEVERIES_FILE.write_text(json.dumps(list(processed)))
+
+def already_reviewed_sha(repo: str, pr_number: int, sha: str) -> bool:
+    data = json.loads(LAST_SHA_FILE.read_text()) if LAST_SHA_FILE.exists() else {}
+    key = f'{repo}#{pr_number}'
+    return data.get(key) == sha
+
+def mark_sha_reviewed(repo: str, pr_number: int, sha: str):
+    data = json.loads(LAST_SHA_FILE.read_text()) if LAST_SHA_FILE.exists() else {}
+    data[f'{repo}#{pr_number}'] = sha
+    LAST_SHA_FILE.mkdir(exist_ok=True)
+    LAST_SHA_FILE.write_text(json.dumps(data))
+
 
 @app.get('/')
 def health():
@@ -91,14 +119,20 @@ async def webhook(
         print(f'[{x_github_delivery}] Invalid signature - rejecting')
         raise HTTPException(status_code=401, detail='Invalid signature')
 
+    Path("logs").mkdir(exist_ok=True)
+
     # Parse payload
     payload = json.loads(body)
     event = x_github_event
     delivery_id = x_github_delivery
 
-    print(f'[{delivery_id}] Received {event} event')
+    # Check if already processed
+    processed = load_processed()
+    if delivery_id in processed:
+        print(f'[{delivery_id}] Already processed, skipping')
+        return {'status': 'duplicate'}
 
-    Path("logs").mkdir(exist_ok=True)
+    print(f'[{delivery_id}] Received {event} event')
 
     # Handle PR events only
     if event == 'pull_request':
@@ -108,7 +142,13 @@ async def webhook(
         owner = payload["repository"]["owner"]["login"]
         repo = payload["repository"]["name"]
         installation_id = payload["installation"]["id"]
-        
+        head_sha = payload['pull_request']['head']['sha']
+
+        # Check if SHA is already processed
+        if already_reviewed_sha(repo, pr_number, head_sha):
+            print(f'[{delivery_id}] Already reviewed SHA {head_sha[:8]}, skipping')
+            return {'status': 'duplicate_sha'}
+
         print(f"[{delivery_id}] PR #{pr_number} on {repo_full_name}: {action}")
 
         # Only react to opened/synchronize (new commits pushed)
@@ -117,23 +157,50 @@ async def webhook(
             try:
                 diff_text = fetch_pr_diff(owner, repo, pr_number, installation_id)
                 print(f"[{delivery_id}] Got diff: {len(diff_text)} chars")
+            except requests.HTTPError as e:
+                print(f'[{delivery_id}] Failed to fetch diff: {e}')
+                return {'status': 'diff_fetch_failed'}
 
-                # Run CriticAI review
-                print(f"[{delivery_id}] Running review...")
-                review = review_diff_with_context(diff_text, codebase_path=None)
+            # Clone the target repo for RAG
+            clone_dir = Path(f'repos/{owner}/{repo}')
+            try:
+                clone_repo_shallow(owner, repo, installation_id, clone_dir)
+                codebase_path = clone_dir
+            except Exception as e:
+                print(f'[{delivery_id}] Clone failed, falling back to no RAG: {e}')
+                codebase_path = None
+
+            # Run CriticAI review
+            print(f"[{delivery_id}] Running review...")
+            try:
+                review = review_diff_with_context(diff_text, codebase_path=codebase_path)
                 print(f"[{delivery_id}] Review complete: {len(review.findings)} findings")
+            except Exception as e:
+                print(f'[{delivery_id}] Review failed: {e}')
+                # Optionally post an error comment
+                try:
+                    post_pr_comment(owner, repo, pr_number, installation_id,
+                        "⚠️ CriticAI encountered an error reviewing this PR. Please retry.")
+                except Exception:
+                    pass
+                return {"status": "review_failed"}
 
-                # Format as markdown
-                comment_body = format_review_as_markdown(review)
 
-                # Post to PR
-                print(f"[{delivery_id}] Posting comment to PR #{pr_number}...")
+            # Format as markdown
+            comment_body = format_review_as_markdown(review)
+
+            # Post to PR
+            print(f"[{delivery_id}] Posting comment to PR #{pr_number}...")
+            try:
                 post_pr_comment(owner, repo, pr_number, installation_id, comment_body)
                 print(f"[{delivery_id}] ✓ Comment posted")
+                mark_processed(delivery_id)
+                mark_sha_reviewed(repo, pr_number, head_sha)
             except Exception as e:
-                print(f'[{delivery_id}] Error: {e}')
+                print(f'[{delivery_id}] Failed to post comment: {e}')
                 import traceback
                 traceback.print_exc()
+                return {'status': 'comment_failed'}
 
     elif event == 'ping':
         # Github sends this when the webhook is first installed
