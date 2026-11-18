@@ -56,3 +56,20 @@ def fetch_pr_diff(owner: str, repo: str, pr_number: int, installation_id: int) -
     )
     response.raise_for_status()
     return response.text
+
+def post_pr_comment(owner: str, repo: str, pr_number: int, installation_id: int, body: str) -> dict:
+    """Post a comment on a pull request"""
+    token = get_installation_token(installation_id)
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+    response = requests.post(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        json={'body': body},
+        timeout=30
+    )
+    response.raise_for_status()
+    return response.json()
