@@ -4,8 +4,6 @@ import os
 import hmac
 import hashlib
 import json
-from ssl import VERIFY_ALLOW_PROXY_CERTS
-from tkinter import LAST
 from typing import Optional
 from fastapi import FastAPI, Request, HTTPException, Header
 import requests
@@ -16,7 +14,6 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
-from code.src.retriever import CodebaseRetriever
 from github_client import fetch_pr_diff, post_pr_comment, clone_repo_shallow
 from review_pr import Review, review_diff_with_context
 
