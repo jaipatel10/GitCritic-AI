@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
-from github_client import fetch_pr_diff
-from review_pr import Review
+from github_client import fetch_pr_diff, post_pr_comment
+from review_pr import Review, review_diff_with_context
 
 app = FastAPI(title='GitCriticAI Github App')
 
