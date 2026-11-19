@@ -1,4 +1,3 @@
-from gettext import install
 import os
 import time
 import jwt
@@ -6,8 +5,9 @@ import requests
 from pathlib import Path
 from dotenv import load_dotenv
 import subprocess
-
-from requests.packages import target
+import tempfile
+import base64
+from contextlib import contextmanager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -53,7 +53,7 @@ def fetch_pr_diff(owner: str, repo: str, pr_number: int, installation_id: int) -
         url,
         headers={
             "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github.v3.diff",  # raw diff MIME type
+            "Accept": "application/vnd.github.diff",  # raw diff MIME type
             "X-GitHub-Api-Version": "2022-11-28",
         },
         timeout=30,
@@ -94,6 +94,58 @@ def clone_repo_shallow(owner: str, repo: str, installation_id: str, target_dir: 
             check=True, capture_output=True,
         )
     return target_dir
+
+@contextmanager
+def ephemeral_clone(owner: str, repo: str, installation_id: int):
+    """Clone temporarily, authenticate securely, and clean up."""
+
+    with tempfile.TemporaryDirectory(
+        prefix="GitCriticAI_clone_"
+    ) as temp_dir:
+
+        clone_path = Path(temp_dir) / "repo"
+
+        token = get_installation_token(installation_id)
+
+        # Prepare GitHub HTTP Basic authentication
+        credentials = base64.b64encode(
+            f"x-access-token:{token}".encode()
+        ).decode()
+
+        # Pass authentication through Git environment configuration
+        # rather than embedding credentials in the clone URL.
+        env = os.environ.copy()
+
+        env["GIT_CONFIG_COUNT"] = "1"
+        env["GIT_CONFIG_KEY_0"] = (
+            "http.https://github.com/.extraheader"
+        )
+        env["GIT_CONFIG_VALUE_0"] = (
+            f"Authorization: Basic {credentials}"
+        )
+
+        clone_url = f"https://github.com/{owner}/{repo}.git"
+
+        subprocess.run(
+            [
+                "git", "clone",
+                "--depth=1",
+                clone_url,
+                str(clone_path)
+            ],
+            check=True,
+            capture_output=True,
+            timeout=120,
+            env=env
+        )
+
+        yield clone_path
+
+    # TemporaryDirectory automatically cleans up here.
+
+
+
+
 
 
 

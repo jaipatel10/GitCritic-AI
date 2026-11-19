@@ -41,6 +41,23 @@ cost per review.
 
 Built as part of transitioning from Android engineering to Applied AI.
 
+## Privacy & Security
+
+GitCriticAI clones your repository only for the duration of a single PR review, 
+then permanently deletes it. Nothing is persisted on GitCriticAI's servers between 
+reviews — not source code, not embeddings, nothing.
+
+**Implementation:**
+- Shallow clone (latest commit only) into a per-review temp directory
+- Vector embeddings generated in-memory (ChromaDB ephemeral mode)
+- Clone + embeddings deleted immediately after review posts
+- Only logs retained: webhook delivery IDs (for dedup) and commit SHAs (for 
+  dedup) — no source code
+
+**Scope of access:** GitCriticAI requires read access to your code (to review it) 
+and write access to pull requests (to post comments). It has no access to 
+repository secrets, actions, or deployment settings.
+
 ## Update on the development :
 
 What’s now built (single-agent + RAG retrieval)
