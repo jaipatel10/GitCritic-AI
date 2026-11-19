@@ -58,6 +58,14 @@ reviews — not source code, not embeddings, nothing.
 and write access to pull requests (to post comments). It has no access to 
 repository secrets, actions, or deployment settings.
 
+### Verification
+
+The ephemeral cleanup is verified at each PR review:
+1. The app logs "Temporary clone cleaned up" after each review
+2. Post-review filesystem inspection shows no artifacts:
+   - No GitCriticAI_clone_* directories in system temp folders
+   - No persistent repos/ or chroma_db/ directories in the app folder
+
 ## Update on the development :
 
 What’s now built (single-agent + RAG retrieval)
