@@ -2,115 +2,96 @@
 
 ## Overview
 
-GitCriticAI is a GitHub app that reviews pull requests using four specialized 
-AI agents (security, performance, logic, style) running in parallel. A 
-synthesizer agent consolidates their findings into a single ranked comment 
-posted to the PR.
-
-## Problem
-
-Senior engineers spend 20-40% of time on PR reviews. Existing 
-AI tools produce generic feedback. Most reviews repeat the same boring checks 
-while missing hard cases (logic bugs, security issues)
-
-## System diagram
+GitCriticAI is a GitHub App that reviews pull requests using a single Claude 
+Sonnet 4.5 agent augmented with codebase-aware retrieval (RAG). Reviews 
+post as PR comments within 30-60 seconds of opening or updating a PR.
 
 ![Architecture](./diagram.png)
 
+## Design decision: single-agent vs multi-agent
+
+The original architecture (see git history) specified 4 specialized agents 
+(security, performance, logic, style) plus a synthesizer. During eval-driven 
+development, this was **evaluated and rejected based on data**:
+
+- Built a 10-case synthetic eval dataset covering all 4 categories at 
+  easy/medium/hard difficulty
+- Single-agent + RAG achieved **F1=1.0 on all 10 cases**
+- No evidence multi-agent would meaningfully improve on this result
+- Complexity has real cost (4x API calls, synthesis latency, debugging burden)
+
+**Decision rule applied:** simpler architecture ships unless measurement 
+shows it's insufficient. Multi-agent remains documented in roadmap for 
+revisit if production evals on complex multi-file PRs reveal gaps.
+
+## System flow
+
+1. GitHub sends webhook on `opened` or `synchronize` events
+2. FastAPI webhook server:
+   - Verifies HMAC-SHA256 signature
+   - Dedups by delivery ID + commit SHA
+   - Queues review as background task
+   - Returns HTTP 200 (within <200ms)
+3. Background task (runs in thread pool):
+   - Fetches PR diff from GitHub API
+   - Ephemeral-clones target repo to temp directory
+   - Indexes Python code chunks (function-level AST)
+   - Hybrid retrieval (dense embeddings + BM25 with RRF fusion)
+   - Sends diff + retrieved context to Claude
+   - Parses + validates findings against Pydantic schema
+   - Posts formatted review as PR comment
+   - Saves SHA for future dedup
+4. Temp directory auto-deletes (via Python `TemporaryDirectory`)
+
 ## Components
 
-### GitHub Webhook Receiver
-Receives `pull_request` events from GitHub. Deduplicates by delivery ID. 
-Validates webhook signature. Forwards verified events to the orchestrator.
+- **FastAPI** webhook server
+- **GitHub App auth:** JWT → installation token exchange
+- **Ephemeral cloning:** `tempfile.TemporaryDirectory` with git credentials 
+  passed via `GIT_CONFIG_*` env vars (not URL-embedded, more secure)
+- **CodebaseRetriever:** ChromaDB `EphemeralClient` + `sentence-transformers` 
+  (`all-MiniLM-L6-v2`) + `BM25Okapi` with RRF fusion (alpha=0.5)
+- **Claude Sonnet 4.5** for review generation
+- **No persistent storage** of source code or embeddings between reviews
 
-### Orchestrator
-Fetches the PR diff and changed files from GitHub API. Launches 4 agents 
-in parallel with the diff + their allowed tool set. Collects results.
+## Measured performance
 
-Decision: parallel execution over sequential — agents are independent, 
-and parallel gives 4× speedup at the same cost.
+Based on 10-case synthetic eval dataset:
+- F1 = 1.00 across all cases
+- Mean latency: 30-60 seconds per review
+- Cost: ~$0.02-0.05 per review (Claude API)
+- Webhook response: <200ms (due to BackgroundTasks)
 
-### The 4 Reviewer Agents
-Each agent is a Claude call with a specialized system prompt and a 
-restricted toolset:
+Dedup: delivery ID (prevents GitHub retry duplication) + commit SHA 
+(prevents re-review of same code).
 
-- **Security Agent** — focus: injection, auth bypasses, exposed secrets, 
-  unsafe deserialization. Tools: `read_file`, `search_codebase`, 
-  `check_dependencies_cves`.
-- **Performance Agent** — focus: N+1 queries, inefficient algorithms, 
-  memory issues. Tools: `read_file`, `search_codebase`, `get_db_schema`.
-- **Logic Agent** — focus: edge cases, null handling, race conditions, 
-  correctness. Tools: `read_file`, `get_tests_for_file`, `get_function_definition`.
-- **Style Agent** — focus: naming, conventions, unused code, missing types. 
-  Tools: `read_file`, `get_project_conventions`.
+## Privacy & security
 
-Each returns a JSON list of findings: `{severity, file, line, message, rationale}`.
+GitCriticAI clones your repository only for the duration of a single review, 
+then permanently deletes it. Nothing persists on GitCriticAI's servers:
+- Shallow clone (latest commit only) into a per-review temp directory
+- Vector embeddings generated in-memory (ChromaDB ephemeral mode)
+- Clone + embeddings deleted immediately after review posts
+- Git auth credentials passed via environment (never in process args or 
+  `.git/config`)
+- Only logs retained: webhook delivery IDs + commit SHAs (for dedup) — 
+  never source code
 
-### Synthesizer
-Takes 4 agent outputs. Removes duplicates. Ranks by severity. Produces 
-one PR comment in GitHub-flavored markdown.
+## Key trade-offs
 
-Decision: synthesizer is a separate LLM call rather than aggregating 
-programmatically. Reasoning: deduplication requires semantic understanding 
-(two agents may describe the same bug differently); ranking requires 
-judgment, not just ordering.
+- **Latency:** Each review clones + indexes freshly (~5-10s overhead) in 
+  exchange for not persisting user code. Acceptable since Claude call is 
+  the dominant latency anyway.
+- **Scalability:** Current architecture handles sequential reviews well. 
+  For high-volume (100+ PRs/day) deployments, would need: worker queue 
+  (Celery), per-installation clone cache, or GitHub API-based retrieval.
+- **Language support:** Python-only for RAG chunking (AST-based). Other 
+  languages would use diff-only review without codebase context.
 
-### Codebase Retrieval (RAG)
-When an agent calls `search_codebase`, the query performs semantic search 
-over indexed repository content.
+## Out of scope
 
-**TBD — design decision pending (Week 12 of my learning plan):**
-- Vector store: choosing between pgvector (Postgres extension) and Chroma 
-  (standalone) based on hands-on comparison in Week 12.
-- Embedding model: evaluating OpenAI's text-embedding-3, Voyage, and 
-  open-source sentence-transformers for code specifically.
-- Chunking strategy: file-level vs function-level vs semantic — will 
-  test multiple strategies and measure retrieval quality.
-
-Deferred to the build phase after I've worked hands-on with these 
-components. See Week 12 learning plan.
-
-## Data flow (end-to-end example)
-
-1. Developer opens PR on their repo with GitCriticAI installed
-2. GitHub sends webhook → GitCriticAI verifies signature and delivery ID
-3. Orchestrator fetches PR diff via GitHub API
-4. Orchestrator launches 4 agents in parallel, each with the diff
-5. Each agent may call tools 0-5 times (`read_file`, `search_codebase`, etc.)
-6. Each agent returns a list of findings
-7. Synthesizer receives all 4 lists, produces one markdown comment
-8. GitCriticAI posts comment via GitHub API
-
-Expected latency: 30-60 seconds per PR. Expected cost: ~$0.10-0.30 per PR.
-
-## Key design decisions
-
- **Multi-agent vs monolithic prompt:** Multi-agent. Isolates concerns 
-  and prevents one agent's bias from affecting others.
-- **Claude for agents:** Claude 4.5 Sonnet initially; will test multi-provider 
-  in evals (Week 14).
-- **Stateless agents:** No memory between PRs. Each review is independent.
-- **Retrieval strategy:** TBD — see Codebase Retrieval section above.
-
-## Trade-offs
-
-- **Cost:** 5 LLM calls per PR (4 agents + 1 synthesizer). ~$0.10-0.30. 
-  Acceptable for serious use, too expensive for every commit.
-- **Latency:** 30-60 seconds. Not real-time, but acceptable since developers 
-  context-switch after opening a PR anyway.
-- **Accuracy:** TBD. Will measure precision/recall on 50-PR eval set in Week 14.
-
-## Out of scope (MVP)
-
-- Languages beyond Python + TypeScript
-- Auto-approving PRs
-- Writing code fixes (reviews only)
+- Non-Python codebases (for RAG; diff-only review works for any language)
+- Auto-applying code suggestions
 - IDE integration
-- Multi-repository org-level configuration
-
-## Open questions
-
-- What's the right severity threshold for posting a comment vs staying silent?
-- How does GitCriticAI handle very large PRs (1000+ lines)?
-- Should the Logic Agent read the actual test files, or is coverage sufficient?
-- What's the cost ceiling where GitCriticAI stops being worth it?
+- Multi-agent orchestration (shelved — see "Design decision" above)
+- Persistent per-installation cache (future scaling work)
