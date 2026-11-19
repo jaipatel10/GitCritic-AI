@@ -13,11 +13,27 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
 APP_ID = os.environ["GITHUB_APP_ID"]
-PRIVATE_KEY_PATH = os.environ["GITHUB_PRIVATE_KEY_PATH"]
+PRIVATE_KEY_PATH = os.getenv("GITHUB_PRIVATE_KEY_PATH")
+PRIVATE_KEY_BASE64 = os.getenv("GITHUB_PRIVATE_KEY_BASE64")
 
 def load_private_key() -> str:
-    """Load the GitHub App's private key from disk."""
-    return Path(PRIVATE_KEY_PATH).read_text()
+    """Load the GitHub App private key from env or local file."""
+
+    if PRIVATE_KEY_BASE64:
+        return base64.b64decode(
+            PRIVATE_KEY_BASE64,
+            validate=True
+        ).decode("utf-8")
+
+    if PRIVATE_KEY_PATH:
+        return Path(PRIVATE_KEY_PATH).read_text(
+            encoding="utf-8"
+        )
+
+    raise RuntimeError(
+        "GitHub private key not configured."
+    )
+
 
 def generate_app_jwt() -> str:
     """Generate a short-lived JWT for GitHub App auth. Valid 10 minutes max."""
