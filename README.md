@@ -1,31 +1,27 @@
-# GitCriticAI
+# GitCriticAI 🧐
 
-GitCritic AI code reviewer for GitHub. An agent (security, performance, logic, style) review your PRs in parallel. A synthesizer produces a single ranked comment.
+AI code reviewer for GitHub pull requests. Multi-agent evaluation showed 
+single-agent + RAG achieves F1=1.0 on 10-case benchmark, so that's what 
+ships. Live, deployed, and reviewing PRs autonomously.
 
-**Status:** Architecture design (Nov 2026). Build starts Week 12 of my 
-Applied AI Engineer learning journey.
+**[Install on your repo →](https://github.com/apps/GitCritic-Ai)** 
+
+## Live Example
+
+See CriticAI reviewing a real PR with planted bugs: 
+[PR #8 on jaipatel10/GitCritic-AI](https://github.com/jaipatel10/GitCritic-AI/pull/8)
+
+![Screenshot](docs/example-review.png)
 
 ## Why
 
 Code review eats 20-40% of senior engineering time. Existing AI tools 
-(CodeRabbit, Copilot) give generic feedback. CriticAI uses multi-agent 
+(CodeRabbit, Copilot) give generic feedback. CriticAI uses an agent to 
 debate with specialized perspectives, plus codebase-aware retrieval.
 
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) and [docs/diagram.png](docs/diagram.png).
-
-## Evals
-
-See [docs/evals.md](docs/evals.md). 50 test PRs, precision/recall per agent, 
-cost per review.
-
-## Roadmap
-
-- [x] Architecture design 
-- [x] Single-agent prototype
-- [x] Eval dataset + metrics 
-- [x] GitHub app integration 
 
 ## Tech stack
 
@@ -68,3 +64,14 @@ The ephemeral cleanup is verified at each PR review:
 - **Response latency:** <200ms webhook (via BackgroundTasks)
 - **Review latency:** 30-60 seconds end-to-end
 - **Cost per review:** ~$0.02-0.05 (Claude API)
+
+## How it works
+
+https://github.com/jaipatel10/GitCritic-AI/blob/main/docs/architecture.md
+https://github.com/jaipatel10/GitCritic-AI/blob/main/docs/diagram.png
+
+## Project Status
+
+v0.1.0 — deployed and reviewing PRs. Built in Weeks 11-14 of my 
+transition from Senior Android to Applied AI Engineer. 
+See [the journey repo](https://github.com/jaipatel10/applied-ai-journey).
