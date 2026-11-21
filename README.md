@@ -75,3 +75,8 @@ https://github.com/jaipatel10/GitCritic-AI/blob/main/docs/diagram.png
 v0.1.0 — deployed and reviewing PRs. Built in Weeks 11-14 of my 
 transition from Senior Android to Applied AI Engineer. 
 See [the journey repo](https://github.com/jaipatel10/applied-ai-journey).
+
+CriticAI has been tested on third-party public repositories including 
+[jpadilla/pyjwt](https://github.com/jpadilla/pyjwt). On a fork with 6 
+planted bugs, it caught 6/6 including a domain-specific JWT algorithm 
+confusion vulnerability. See [example PR](https://github.com/jaipatel10/pyjwt/pull/2).

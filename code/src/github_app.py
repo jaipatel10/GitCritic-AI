@@ -64,7 +64,7 @@ def format_review_as_markdown(review: Review) -> str:
         body.append(f'\n{f.rationale}\n')
 
     body.append('---')
-    body.append("_Reviewed by [CriticAI](https://github.com/jaipatel10/GitCritic-AI). React with 👍/👎 to help improve._")
+    body.append("_Reviewed by [GitCriticAI](https://github.com/jaipatel10/GitCritic-AI). React with 👍/👎 to help improve._")
 
     return '\n'.join(body)
 
