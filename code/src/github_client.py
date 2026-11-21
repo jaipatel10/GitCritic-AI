@@ -40,7 +40,7 @@ def generate_app_jwt() -> str:
     now = int(time.time())
     payload = {
         "iat": now - 60,                   # backdate to allow clock skew
-        "exp": now + 10 * 60,              # expires in 10 minutes
+        "exp": now + 5 * 60,              # expires in 10 minutes
         "iss": APP_ID,                     # issuer = this GitHub App
     }
     return jwt.encode(payload, load_private_key(), algorithm="RS256")
